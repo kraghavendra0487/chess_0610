@@ -1,0 +1,26 @@
+{
+  "name": "chess-backend",
+  "version": "1.0.0",
+  "description": "Node.js backend controlling Python/Stockfish chess engine",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node test-integration.js"
+  },
+  "dependencies": {
+    "chess.js": "^1.4.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.2"
+  },
+  "keywords": [
+    "chess",
+    "stockfish",
+    "node",
+    "python"
+  ],
+  "author": "",
+  "license": "MIT"
+}
