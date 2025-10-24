@@ -84,7 +84,7 @@ Chess_0610/
 ├── python/                  # Python AI engine
 │   ├── engine.py           # Basic Stockfish wrapper
 │   ├── engine_safe.py      # Enhanced error handling
-│   ├── main.py             # FastAPI server
+│   ├── main.py             # Legacy FastAPI server (not used)
 │   ├── ultra_fast_pgn_analyzer.py # Multi-worker PGN analysis
 │   ├── setup_environment.py # Environment setup
 │   └── requirements.txt

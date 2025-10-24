@@ -83,6 +83,7 @@ async function analyzePGNUltraFastInternal(pgn, depth = 10, maxWorkers = null) {
     
     console.log(`🚀 Spawning ULTRA-FAST Python PGN analyzer: ${pythonPath} ${scriptPath}`);
     console.log(`⚡ Analyzing PGN game with depth ${depth}, workers: ${maxWorkers || 'auto'}`);
+    console.log(`📋 Python process started - watching for detailed worker logs...`);
     
     const py = spawn(pythonPath, [scriptPath], {
       stdio: ['pipe', 'pipe', 'pipe']
@@ -96,13 +97,19 @@ async function analyzePGNUltraFastInternal(pgn, depth = 10, maxWorkers = null) {
     });
     
     py.stderr.on("data", (data) => {
-      error += data.toString();
+      const stderrData = data.toString();
+      error += stderrData;
+      // Show stderr output in real-time for debugging
+      if (stderrData.trim()) {
+        console.log(`[PYTHON] ${stderrData.trim()}`);
+      }
     });
     
     py.on("close", (code) => {
       if (code !== 0) {
         console.error(`❌ Python ULTRA-FAST analyzer exited with code ${code}`);
         console.error(`Error output: ${error}`);
+        console.error(`Standard output: ${output}`);
         return reject(new Error(`Python ULTRA-FAST analysis failed: ${error || "Unknown error"}`));
       }
       
@@ -111,6 +118,7 @@ async function analyzePGNUltraFastInternal(pgn, depth = 10, maxWorkers = null) {
         if (parsed.success === false) {
           return reject(new Error(parsed.error || "ULTRA-FAST PGN analysis failed"));
         }
+        console.log(`✅ Python ULTRA-FAST analysis completed successfully!`);
         resolve(parsed);
       } catch (err) {
         console.error(`Failed to parse Python ULTRA-FAST output: ${output}`);

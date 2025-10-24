@@ -16,8 +16,7 @@ app.get("/", (req, res) => {
     status: "running",
     features: [
       "Multithreaded AI analysis",
-      "FastAPI backend integration",
-      "Fallback to Python process",
+      "Python process integration",
       "Thread-safe operations"
     ],
     endpoints: {
@@ -142,6 +141,72 @@ app.get("/api/stockfish/analyze", async (req, res) => {
   }
 });
 
+// Direct PGN analysis endpoint - analyze entire PGN game using multi-worker analysis
+app.post("/analyze-pgn", async (req, res) => {
+  try {
+    const { pgn, depth = 10, useMultiWorker = true } = req.body;
+    
+    // Validate input
+    if (!pgn || typeof pgn !== 'string' || pgn.trim().length === 0) {
+      return res.status(400).json({ 
+        error: "PGN string is required and must not be empty",
+        success: false
+      });
+    }
+    
+    if (depth < 1 || depth > 25) {
+      return res.status(400).json({ 
+        error: "Depth must be between 1 and 25",
+        success: false
+      });
+    }
+    
+    console.log(`🎯 PGN analysis request - Depth: ${depth}, Multi-worker: ${useMultiWorker}`);
+    console.log(`📊 PGN length: ${pgn.length} characters`);
+    
+    if (useMultiWorker) {
+      // Use ULTRA-FAST multi-worker PGN analysis
+      console.log(`🚀 Using ULTRA-FAST multi-worker PGN analysis`);
+      const result = await analyzePGNUltraFast(pgn, depth, null);
+      
+      if (result.success) {
+        console.log(`✅ Multi-worker PGN analysis complete - ${result.total_positions} positions in ${result.analysis_time}s`);
+        console.log(`📈 Speed: ${result.positions_per_second} positions/second`);
+        res.json(result);
+      } else {
+        throw new Error(result.error || "Multi-worker PGN analysis failed");
+      }
+    } else {
+      // Fallback to sequential method (convert PGN to moves first)
+      const moves = extractMovesFromPGN(pgn);
+      if (moves.length === 0) {
+        throw new Error("No valid moves found in PGN");
+      }
+      
+      console.log(`📊 Extracted ${moves.length} moves from PGN`);
+      const evaluations = await evaluateGame(moves, depth, 1);
+      console.log(`✅ Sequential PGN analysis complete - ${Object.keys(evaluations).length} positions analyzed`);
+      
+      res.json({
+        success: true,
+        total_positions: Object.keys(evaluations).length,
+        analysis_time: 0, // Sequential doesn't track time
+        workers_used: 1,
+        depth: depth,
+        positions_per_second: 0,
+        results: evaluations
+      });
+    }
+    
+  } catch (error) {
+    console.error("❌ PGN analysis error:", error.message);
+    res.status(500).json({ 
+      error: `PGN analysis failed: ${error.message}`,
+      success: false
+    });
+  }
+});
+
 // Game evaluation endpoint - analyze entire game using multi-worker PGN analysis
 app.post("/evaluate-game", async (req, res) => {
   try {
@@ -223,6 +288,31 @@ function createPGNFromMoves(moves) {
   return headers + movesText.trim();
 }
 
+// Helper function to extract moves from PGN string
+function extractMovesFromPGN(pgnString) {
+  try {
+    const lines = pgnString.split('\n');
+    let movesText = '';
+    
+    // Extract moves text (skip headers)
+    for (const line of lines) {
+      if (line.trim() && !line.startsWith('[')) {
+        movesText += line + ' ';
+      }
+    }
+    
+    // Parse moves
+    const moves = movesText.trim().split(/\s+/).filter(move => 
+      move && !move.match(/^\d+\.$/) && move !== '1-0' && move !== '0-1' && move !== '1/2-1/2' && move !== '*'
+    );
+    
+    return moves;
+  } catch (error) {
+    console.error('Error extracting moves from PGN:', error);
+    return [];
+  }
+}
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err);
@@ -241,8 +331,10 @@ app.listen(PORT, () => {
   console.log(`   GET  http://localhost:${PORT}/test`);
   console.log(`   POST http://localhost:${PORT}/analyze`);
   console.log(`   GET  http://localhost:${PORT}/api/stockfish/analyze`);
+  console.log(`   POST http://localhost:${PORT}/analyze-pgn`);
+  console.log(`   POST http://localhost:${PORT}/evaluate-game`);
   console.log(`\n🎯 Ready for multithreaded chess analysis!`);
-  console.log(`🧠 AI Features: FastAPI integration + Python fallback`);
+  console.log(`🧠 AI Features: Python process integration, ULTRA-FAST PGN analysis`);
 });
 
 // Graceful shutdown

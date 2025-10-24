@@ -40,3 +40,13 @@
 .read-the-docs {
   color: #888;
 }
+
+/* Thinner dark green arrows for chessboard */
+#AnalysisBoard svg g path,
+#AnalysisBoard svg g line {
+  stroke-width: 3px !important;
+}
+
+#AnalysisBoard svg g polygon {
+  stroke-width: 0.5px !important;
+}

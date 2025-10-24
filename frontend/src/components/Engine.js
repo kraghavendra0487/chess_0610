@@ -69,13 +69,18 @@ class Engine {
   handleEngineResponse(result) {
     const { best_move, evaluation, depth } = result;
     
-    // Parse evaluation
+    // Parse evaluation - backend sends raw centipawn values
     let positionEvaluation = 0;
     let possibleMate = null;
     
-    if (evaluation.type === 'cp') {
+    if (typeof evaluation === 'number') {
+      // Backend sends raw centipawn as a number
+      positionEvaluation = evaluation;
+    } else if (evaluation && evaluation.type === 'cp') {
+      // Backend sends {type: 'cp', value: centipawns}
       positionEvaluation = evaluation.value;
-    } else if (evaluation.type === 'mate') {
+    } else if (evaluation && evaluation.type === 'mate') {
+      // Mate evaluation
       possibleMate = evaluation.value;
     }
 

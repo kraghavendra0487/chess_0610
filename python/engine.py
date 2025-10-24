@@ -2,10 +2,39 @@ import sys
 import json
 import threading
 import time
+import os
 from stockfish import Stockfish
 
-# Path to your stockfish.exe (update this path as needed)
-STOCKFISH_PATH = "C:\\Users\\ragha\\Desktop\\Chess_0610\\stockfish\\stockfish.exe"
+# Dynamic path to stockfish.exe based on script location
+def get_stockfish_path():
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(script_dir)
+    stockfish_path = os.path.join(project_root, "stockfish", "stockfish.exe")
+    
+    # Check if stockfish.exe exists
+    if os.path.exists(stockfish_path):
+        return stockfish_path
+    
+    # Fallback to original hardcoded path
+    fallback_path = "C:\\Users\\ragha\\Desktop\\Chess_0610\\stockfish\\stockfish.exe"
+    if os.path.exists(fallback_path):
+        return fallback_path
+    
+    # Try to find stockfish in common locations
+    common_paths = [
+        os.path.join(project_root, "stockfish", "stockfish"),
+        os.path.join(project_root, "stockfish", "stockfish.exe"),
+        "stockfish",
+        "stockfish.exe"
+    ]
+    
+    for path in common_paths:
+        if os.path.exists(path):
+            return path
+    
+    raise FileNotFoundError("Stockfish executable not found. Please ensure stockfish.exe is in the stockfish directory.")
+
+STOCKFISH_PATH = get_stockfish_path()
 
 # Global lock for thread safety
 stockfish_lock = threading.Lock()
@@ -39,10 +68,18 @@ def analyze_position(fen, depth=10):
             best_move = stockfish.get_best_move()
             evaluation = stockfish.get_evaluation()
             
+            # Convert evaluation to cp/100 format
+            if evaluation['type'] == 'cp':
+                evaluation_cp_100 = evaluation['value'] / 100.0
+            elif evaluation['type'] == 'mate':
+                evaluation_cp_100 = evaluation['value']  # Keep mate values as-is
+            else:
+                evaluation_cp_100 = 0
+            
             return {
                 "fen": fen,
                 "best_move": best_move,
-                "evaluation": evaluation,
+                "evaluation": evaluation_cp_100,
                 "depth": depth,
                 "optimized": True,
                 "success": True

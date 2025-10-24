@@ -76,9 +76,9 @@
    python -c "import stockfish; print('Stockfish module available')"
    ```
 
-### Issue 3: FastAPI Service Not Starting
+### Issue 3: Python Process Integration Issues
 
-**Problem**: FastAPI service fails to start or isn't accessible.
+**Problem**: Python processes fail to start or aren't accessible.
 
 **Solutions**:
 
@@ -93,15 +93,15 @@
    python --version
    ```
 
-3. **Start FastAPI manually**:
+3. **Test Python integration directly**:
    ```bash
    cd python
-   python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+   python engine_safe.py
    ```
 
-4. **Test FastAPI directly**:
+4. **Verify Python process communication**:
    ```bash
-   curl http://localhost:8000/health
+   echo '{"fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "depth": 10}' | python engine_safe.py
    ```
 
 ### Issue 3: Stockfish Not Found
@@ -164,15 +164,10 @@
    app.use(cors());
    ```
 
-2. **Check FastAPI CORS** in `python/main.py`:
-   ```python
-   app.add_middleware(
-       CORSMiddleware,
-       allow_origins=["*"],
-       allow_credentials=True,
-       allow_methods=["*"],
-       allow_headers=["*"],
-   )
+2. **Check Python process communication** in `backend/python-runner.js`:
+   ```javascript
+   const pythonPath = "python"; // or "python3" on some systems
+   const scriptPath = path.join(__dirname, "..", "python", "engine_safe.py");
    ```
 
 ## 🔧 Step-by-Step Debugging
@@ -183,8 +178,8 @@
 # Test Node.js backend
 curl http://localhost:5000/health
 
-# Test FastAPI service
-curl http://localhost:8000/health
+# Test Python integration
+curl http://localhost:5000/test
 
 # Test AI endpoint
 curl "http://localhost:5000/api/stockfish/analyze?fen=rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR%20w%20KQkq%20-%200%201&depth=10"
@@ -199,11 +194,11 @@ npm start
 # Look for: "🚀 Backend server running on port 5000"
 ```
 
-**FastAPI Service**:
+**Python Process Integration**:
 ```bash
 cd python
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-# Look for: "Uvicorn running on http://0.0.0.0:8000"
+python engine_safe.py
+# Look for: "Analysis complete" or similar output
 ```
 
 ### 3. Frontend Debugging
@@ -270,7 +265,7 @@ kill -9 <process_id>
 
 When everything is working correctly:
 - Node.js backend shows: "🚀 Backend server running on port 5000"
-- FastAPI shows: "Uvicorn running on http://0.0.0.0:8000"
+- Python integration shows: "Python/Stockfish integration working correctly ✅"
 - Frontend loads without console errors
 - AI moves are calculated and applied automatically
 - Console shows: "[fetchBestMove] ✅ Multithreaded analysis complete"
