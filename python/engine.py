@@ -68,11 +68,16 @@ def analyze_position(fen, depth=10):
             best_move = stockfish.get_best_move()
             evaluation = stockfish.get_evaluation()
             
-            # Convert evaluation to cp/100 format
+            # Convert evaluation to cp/100 format with mate handling
             if evaluation['type'] == 'cp':
                 evaluation_cp_100 = evaluation['value'] / 100.0
             elif evaluation['type'] == 'mate':
-                evaluation_cp_100 = evaluation['value']  # Keep mate values as-is
+                # Convert mate to +1000 (white mate) or -1000 (black mate)
+                mate_value = evaluation['value']
+                if mate_value > 0:
+                    evaluation_cp_100 = 1000  # White has mate
+                else:
+                    evaluation_cp_100 = -1000  # Black has mate
             else:
                 evaluation_cp_100 = 0
             

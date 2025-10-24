@@ -96,11 +96,16 @@ def analyze_position_worker(fen_data):
             # For starting position, no previous position exists
             best_move = None
         
-        # Keep evaluation in raw centipawn format
+        # Process evaluation - convert mate to +1000/-1000 based on color
         if evaluation['type'] == 'cp':
             evaluation_raw = evaluation['value']  # Keep raw centipawn values
         elif evaluation['type'] == 'mate':
-            evaluation_raw = evaluation['value']  # Keep mate values as-is
+            # Convert mate to +1000 (white mate) or -1000 (black mate)
+            mate_value = evaluation['value']
+            if mate_value > 0:
+                evaluation_raw = 1000  # White has mate
+            else:
+                evaluation_raw = -1000  # Black has mate
         else:
             evaluation_raw = 0
         
@@ -136,12 +141,12 @@ def analyze_position_worker(fen_data):
                             if actual_move_eval['type'] == 'cp':
                                 move_played_evaluation = actual_move_eval['value']
                             elif actual_move_eval['type'] == 'mate':
-                                # Convert mate to a large centipawn value for comparison
+                                # Convert mate to +1000/-1000 based on color
                                 mate_value = actual_move_eval['value']
                                 if mate_value > 0:
-                                    move_played_evaluation = 10000 - mate_value  # Positive mate (good for White)
+                                    move_played_evaluation = 1000  # White has mate
                                 else:
-                                    move_played_evaluation = -10000 - mate_value  # Negative mate (good for Black)
+                                    move_played_evaluation = -1000  # Black has mate
                             else:
                                 move_played_evaluation = 0
                 except Exception as actual_move_error:
@@ -166,12 +171,12 @@ def analyze_position_worker(fen_data):
                             if best_move_eval['type'] == 'cp':
                                 best_move_evaluation = best_move_eval['value']
                             elif best_move_eval['type'] == 'mate':
-                                # Convert mate to a large centipawn value for comparison
+                                # Convert mate to +1000/-1000 based on color
                                 mate_value = best_move_eval['value']
                                 if mate_value > 0:
-                                    best_move_evaluation = 10000 - mate_value  # Positive mate (good for White)
+                                    best_move_evaluation = 1000  # White has mate
                                 else:
-                                    best_move_evaluation = -10000 - mate_value  # Negative mate (good for Black)
+                                    best_move_evaluation = -1000  # Black has mate
                             else:
                                 best_move_evaluation = 0
                 except Exception as best_move_error:
