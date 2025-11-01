@@ -33,8 +33,59 @@ import {
   NumberInputStepper,
   NumberIncrementStepper,
   NumberDecrementStepper,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
 } from '@chakra-ui/react';
 import { ChevronLeftIcon, ChevronRightIcon, ChevronLeftIcon as FirstIcon, ChevronRightIcon as LastIcon } from '@chakra-ui/icons';
+
+const CLASSIFICATION_TOLERANCE = 0.01;
+
+const classifyMoveQuality = (prevEvalCp, playedEvalCp, bestEvalCp, isWhiteMove) => {
+  if (
+    prevEvalCp === null ||
+    prevEvalCp === undefined ||
+    playedEvalCp === null ||
+    playedEvalCp === undefined ||
+    bestEvalCp === null ||
+    bestEvalCp === undefined
+  ) {
+    return 'N/A';
+  }
+
+  const toPawns = (value) => value / 100;
+
+  const ePrev = toPawns(prevEvalCp);
+  const ePlayed = toPawns(playedEvalCp);
+  const eBest = toPawns(bestEvalCp);
+  const sideMultiplier = isWhiteMove ? 1 : -1;
+  const delta = sideMultiplier * (ePlayed - ePrev);
+
+  if (Math.abs(ePlayed - eBest) <= CLASSIFICATION_TOLERANCE) {
+    return 'Best Move';
+  }
+
+  if (delta >= -0.20 - CLASSIFICATION_TOLERANCE) {
+    return 'Excellent';
+  }
+
+  if (delta >= -0.45 - CLASSIFICATION_TOLERANCE) {
+    return 'Good';
+  }
+
+  if (delta >= -1.0 - CLASSIFICATION_TOLERANCE) {
+    return 'Inaccuracy';
+  }
+
+  if (delta >= -2.0 - CLASSIFICATION_TOLERANCE) {
+    return 'Mistake';
+  }
+
+  return 'Blunder';
+};
 
 const AnalysisBoard = () => {
   // Initialize the engine
@@ -421,7 +472,8 @@ const AnalysisBoard = () => {
               mate: '', // No separate mate handling needed
               movePlayed: analysis.move_played || null, // Track which move was actually played
               movePlayedEvaluation: analysis.move_played_evaluation || null, // Evaluation of move played
-              bestMoveEvaluation: analysis.best_move_evaluation || null // Evaluation of best move
+              bestMoveEvaluation: analysis.best_move_evaluation || null, // Evaluation of best move
+              previousPositionEvaluation: analysis.previous_position_evaluation ?? null // Evaluation of previous position
             };
           }
         });
@@ -1450,184 +1502,133 @@ const AnalysisBoard = () => {
                     Move Analysis
                   </Text>
                   
-                  {/* Played Move (move that led to current position) */}
-                  {currentMoveIndex >= 0 && allMoves[currentMoveIndex] ? (
-                    <VStack spacing={2} align="center">
-                      <Text fontSize="xs" color={historyTextColor} textAlign="center">
-                        Move Played:
-                      </Text>
-                      <Text fontSize="lg" fontWeight="bold" color={blueMoveText} textAlign="center">
-                        {allMoves[currentMoveIndex]}
-                      </Text>
                       {(() => {
-                        // Get the evaluation of the move that was played (after playing the actual move)
                         const currentAnalysis = bulkAnalysisResults[chessGame.fen()];
-                        if (currentAnalysis && currentAnalysis.movePlayedEvaluation !== null) {
+                        const prevMoveIndex = currentMoveIndex - 1;
+                        const prevMove = prevMoveIndex >= 0 ? allMoves[prevMoveIndex] : null;
+                        const movePlayed = currentMoveIndex >= 0 ? allMoves[currentMoveIndex] : null;
+                        const bestMoveRaw = currentAnalysis?.bestLine || null;
+                        const bestMove = bestMoveRaw ? bestMoveRaw.split(' ')[0] : bestMoveRaw;
+
+                        const prevMoveEval = currentAnalysis?.previousPositionEvaluation ?? null;
+                        const movePlayedEval = currentAnalysis?.movePlayedEvaluation ?? null;
+                        const bestMoveEval = currentAnalysis?.bestMoveEvaluation ?? null;
+
+                        const diffPrevToPlayed = (prevMoveEval !== null && movePlayedEval !== null)
+                          ? (movePlayedEval - prevMoveEval) / 100
+                          : null;
+
+                        const diffPlayedToBest = (movePlayedEval !== null && bestMoveEval !== null)
+                          ? (movePlayedEval - bestMoveEval) / 100
+                          : null;
+
+                        const diffPrevToBest = (prevMoveEval !== null && bestMoveEval !== null)
+                          ? (bestMoveEval - prevMoveEval) / 100
+                          : null;
+
+                        const isWhiteMove = currentMoveIndex % 2 === 0;
+                        const moveClassification = classifyMoveQuality(
+                          prevMoveEval,
+                          movePlayedEval,
+                          bestMoveEval,
+                          isWhiteMove
+                        );
+
+                        const classificationColorMap = {
+                          'Best Move': 'green.400',
+                          'Excellent': 'teal.400',
+                          'Good': 'blue.400',
+                          'Inaccuracy': 'yellow.500',
+                          'Mistake': 'orange.500',
+                          'Blunder': 'red.500',
+                          'N/A': historyTextColor,
+                        };
+
+                        const classificationColor = classificationColorMap[moveClassification] || historyTextColor;
+
+                        const formatEval = (evaluation) => {
+                          if (evaluation === null) return 'N/A';
+                          if (Math.abs(evaluation) > 9500) return evaluation > 0 ? 'Mate' : 'Mate';
+                          return (evaluation / 100).toFixed(2);
+                        };
+
+                        const formatDiff = (diff) => {
+                          if (diff === null) return 'N/A';
+                          return diff >= 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
+                        };
+
+                        if (currentMoveIndex === -1) {
                           return (
-                            <Text fontSize="xs" color={blueMoveText} textAlign="center" fontWeight="bold">
-                              Eval: {(currentAnalysis.movePlayedEvaluation / 100).toFixed(2)}
+                            <Text fontSize="sm" color={historyTextColor} textAlign="center" fontStyle="italic">
+                              Starting Position
                             </Text>
                           );
                         }
-                        // Fallback to current position evaluation
-                        const currentEval = getCurrentEvaluation();
-                        if (currentEval !== 0) {
-                          return (
-                            <Text fontSize="xs" color={blueMoveText} textAlign="center" fontWeight="bold">
-                              Eval: {(currentEval / 100).toFixed(2)}
-                            </Text>
-                          );
-                        }
-                        return null;
+
+                        return (
+                          <Box overflowX="auto">
+                            <Table size="sm" variant="simple">
+                              <Thead>
+                                <Tr>
+                                  <Th fontSize="xs" textAlign="center" p={2}>Prev Move</Th>
+                                  <Th fontSize="xs" textAlign="center" p={2}>Move Played</Th>
+                                  <Th fontSize="xs" textAlign="center" p={2}>Best Move</Th>
+                                </Tr>
+                              </Thead>
+                              <Tbody>
+                                {/* Row 1: Moves */}
+                                <Tr>
+                                  <Td fontSize="sm" fontWeight="bold" textAlign="center" p={2} borderColor={historyBorderColor}>
+                                    {prevMove || 'N/A'}
+                                  </Td>
+                                  <Td fontSize="sm" fontWeight="bold" textAlign="center" p={2} borderColor={historyBorderColor} color={blueMoveText}>
+                                    {movePlayed || 'N/A'}
+                                  </Td>
+                                  <Td fontSize="sm" fontWeight="bold" textAlign="center" p={2} borderColor={historyBorderColor} color={greenMoveText}>
+                                    {bestMove || 'N/A'}
+                                  </Td>
+                                </Tr>
+                                {/* Row 2: Evaluations */}
+                                <Tr>
+                                  <Td fontSize="xs" textAlign="center" p={2} borderColor={historyBorderColor}>
+                                    {formatEval(prevMoveEval)}
+                                  </Td>
+                                  <Td fontSize="xs" textAlign="center" p={2} borderColor={historyBorderColor} color={blueMoveText} fontWeight="bold">
+                                    {formatEval(movePlayedEval)}
+                                  </Td>
+                                  <Td fontSize="xs" textAlign="center" p={2} borderColor={historyBorderColor} color={greenMoveText} fontWeight="bold">
+                                    {formatEval(bestMoveEval)}
+                                  </Td>
+                                </Tr>
+                                {/* Row 3: Differences */}
+                                <Tr>
+                                  <Td fontSize="xs" textAlign="center" p={2} borderColor={historyBorderColor}>
+                                    {formatDiff(diffPrevToPlayed)}
+                                  </Td>
+                                  <Td fontSize="xs" textAlign="center" p={2} borderColor={historyBorderColor}>
+                                    {formatDiff(diffPrevToBest)}
+                                  </Td>
+                                  <Td fontSize="xs" textAlign="center" p={2} borderColor={historyBorderColor}>
+                                    {formatDiff(diffPlayedToBest)}
+                                  </Td>
+                                </Tr>
+                                {/* Row 4: Classification */}
+                                <Tr>
+                                  <Td fontSize="xs" textAlign="center" p={2} borderColor={historyBorderColor}>
+                                    {moveClassification === 'N/A' ? 'N/A' : '—'}
+                                  </Td>
+                                  <Td fontSize="xs" textAlign="center" p={2} borderColor={historyBorderColor} color={classificationColor} fontWeight="bold">
+                                    {moveClassification}
+                                  </Td>
+                                  <Td fontSize="xs" textAlign="center" p={2} borderColor={historyBorderColor}>
+                                    {moveClassification === 'N/A' ? 'N/A' : '—'}
+                                  </Td>
+                                </Tr>
+                              </Tbody>
+                            </Table>
+                          </Box>
+                        );
                       })()}
-                    </VStack>
-                  ) : (
-                    <VStack spacing={1} align="center">
-                      <Text fontSize="xs" color={historyTextColor} textAlign="center">
-                        Move Played:
-                      </Text>
-                      <Text fontSize="sm" color={historyTextColor} textAlign="center" fontStyle="italic">
-                        Starting Position
-                      </Text>
-                    </VStack>
-                  )}
-                  
-                  {/* Best Move (from previous position) */}
-                  {(() => {
-                    // Get the best move from previous position (now provided directly by backend)
-                          const currentAnalysis = bulkAnalysisResults[chessGame.fen()];
-                    const bestMoveFromPrevious = currentAnalysis?.bestLine || '';
-                    const bestMoveEvaluation = currentAnalysis?.bestMoveEvaluation || null;
-                    
-                    return bestMoveFromPrevious ? (
-                      <VStack spacing={2} align="center">
-                        <Text fontSize="xs" color={historyTextColor} textAlign="center">
-                          Best Move:
-                        </Text>
-                        <Text fontSize="lg" fontWeight="bold" color={greenMoveText} textAlign="center">
-                          {bestMoveFromPrevious}
-                        </Text>
-                        {bestMoveEvaluation !== null && (
-                          <Text fontSize="xs" color={greenMoveText} textAlign="center" fontWeight="bold">
-                            Eval: {(bestMoveEvaluation / 100).toFixed(2)}
-                          </Text>
-                        )}
-                        {bestMoveEvaluation === null && (
-                          <Text fontSize="xs" color={greenMoveText} textAlign="center" fontWeight="bold">
-                            Eval: {formatEvaluation()}
-                          </Text>
-                        )}
-                        
-                        {/* Move Quality Assessment */}
-                        {(() => {
-                          const currentAnalysis = bulkAnalysisResults[chessGame.fen()];
-                          const movePlayedEval = currentAnalysis?.movePlayedEvaluation;
-                          const bestMoveEval = currentAnalysis?.bestMoveEvaluation;
-                          
-                          if (movePlayedEval !== null && bestMoveEval !== null) {
-                            // Calculate difference: played move - best move
-                            const evalDiff = movePlayedEval - bestMoveEval;
-                            
-                            // Determine if it's White's turn (even move numbers) or Black's turn (odd move numbers)
-                            const isWhiteMove = currentMoveIndex % 2 === 0;
-                            
-                            let moveQuality, color, diffDisplay;
-                            
-                            // Check if either evaluation is a mate (backend now converts mates to large centipawn values)
-                            // Use a higher threshold to distinguish between very bad positions and actual mates
-                            const isMovePlayedMate = Math.abs(movePlayedEval) > 9500;
-                            const isBestMoveMate = Math.abs(bestMoveEval) > 9500;
-                            
-                            if (isMovePlayedMate || isBestMoveMate) {
-                              // Handle mate evaluations - backend converts them to comparable centipawn values
-                              if (isMovePlayedMate && isBestMoveMate) {
-                                // Both are mates - compare the converted values
-                                const diffInPawns = Math.abs(evalDiff) / 100;
-                                
-                                if (diffInPawns < 0.05) {
-                                  moveQuality = "Neutral";
-                                  color = "gray.400";
-                                  diffDisplay = "0.00";
-                                } else {
-                                  if (isWhiteMove) {
-                                    if (evalDiff > 0) {
-                                      moveQuality = "Positive";
-                                      color = "green.400";
-                                    } else {
-                                      moveQuality = "Negative";
-                                      color = "red.400";
-                                    }
-                                  } else {
-                                    if (evalDiff < 0) {
-                                      moveQuality = "Positive";
-                                      color = "green.400";
-                                    } else {
-                                      moveQuality = "Negative";
-                                      color = "red.400";
-                                    }
-                                  }
-                                  diffDisplay = diffInPawns.toFixed(2);
-                                }
-                              } else {
-                                // One is mate, one is not - mate is usually better
-                                moveQuality = "Critical";
-                                color = "purple.400";
-                                diffDisplay = "Mate";
-                              }
-                            } else {
-                              // Regular centipawn evaluations
-                              const diffInPawns = Math.abs(evalDiff) / 100;
-                              
-                              if (diffInPawns < 0.05) { // Within 0.05 pawns = neutral
-                                moveQuality = "Neutral";
-                                color = "gray.400";
-                              } else if (isWhiteMove) {
-                                // White's perspective: positive = better for White
-                                if (evalDiff > 0) {
-                                  moveQuality = "Positive";
-                                  color = "green.400";
-                                } else {
-                                  moveQuality = "Negative";
-                                  color = "red.400";
-                                }
-                              } else {
-                                // Black's perspective: positive = better for Black (opposite of White)
-                                if (evalDiff < 0) {
-                                  moveQuality = "Positive";
-                                  color = "green.400";
-                                } else {
-                                  moveQuality = "Negative";
-                                  color = "red.400";
-                                }
-                              }
-                              diffDisplay = diffInPawns.toFixed(2);
-                            }
-                            
-                            return (
-                              <Text 
-                                fontSize="xs" 
-                                color={color} 
-                                textAlign="center" 
-                                fontWeight="bold"
-                              >
-                                {moveQuality} Move {diffDisplay}
-                          </Text>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </VStack>
-                    ) : (
-                      <VStack spacing={1} align="center">
-                        <Text fontSize="xs" color={historyTextColor} textAlign="center">
-                          Best Move:
-                        </Text>
-                        <Text fontSize="sm" color={historyTextColor} textAlign="center" fontStyle="italic">
-                          {currentMoveIndex === -1 ? 'Starting Position' : 'No analysis available'}
-                        </Text>
-                      </VStack>
-                    );
-                  })()}
                 </VStack>
               </Box>
 

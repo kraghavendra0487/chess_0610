@@ -109,6 +109,35 @@ def analyze_position_worker(fen_data):
         else:
             evaluation_raw = 0
         
+        # Get evaluation of the previous position
+        previous_position_evaluation = None
+        if previous_fen:
+            try:
+                stockfish.set_fen_position(previous_fen)
+                stockfish.set_depth(depth)
+                prev_eval = stockfish.get_evaluation()
+                
+                if prev_eval['type'] == 'cp':
+                    previous_position_evaluation = prev_eval['value']
+                elif prev_eval['type'] == 'mate':
+                    # Convert mate to +1000/-1000 based on color
+                    mate_value = prev_eval['value']
+                    if mate_value > 0:
+                        previous_position_evaluation = 1000  # White has mate
+                    else:
+                        previous_position_evaluation = -1000  # Black has mate
+                else:
+                    previous_position_evaluation = 0
+                    
+                # Reset back to current position for other evaluations
+                stockfish.set_fen_position(fen)
+            except Exception as prev_eval_error:
+                print(f"WORKER {worker_id}: Could not get previous position evaluation: {prev_eval_error}", file=sys.stderr)
+                previous_position_evaluation = None
+        else:
+            # For starting position (move 0), previous evaluation is 0
+            previous_position_evaluation = 0
+        
         # Get evaluation of the move that was played vs best move (both from previous position)
         move_played_evaluation = None
         best_move_evaluation = None
@@ -187,13 +216,14 @@ def analyze_position_worker(fen_data):
                 print(f"WORKER {worker_id}: Could not evaluate moves: {eval_error}", file=sys.stderr)
                 move_played_evaluation = None
         
-        print(f"WORKER {worker_id}: Completed position {move_number} - Best move from previous: {best_move}, Current eval: {evaluation_raw}, Move played eval: {move_played_evaluation}, Best move eval: {best_move_evaluation}", file=sys.stderr)
+        print(f"WORKER {worker_id}: Completed position {move_number} - Previous eval: {previous_position_evaluation}, Best move from previous: {best_move}, Current eval: {evaluation_raw}, Move played eval: {move_played_evaluation}, Best move eval: {best_move_evaluation}", file=sys.stderr)
         
         return {
             "move_number": move_number,
             "fen": fen,
             "best_move": best_move,
             "evaluation": evaluation_raw,
+            "previous_position_evaluation": previous_position_evaluation,
             "move_played_evaluation": move_played_evaluation,
             "best_move_evaluation": best_move_evaluation,
             "depth": depth,
